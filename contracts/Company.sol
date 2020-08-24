@@ -5,8 +5,8 @@ contract Company{
     string pk ;
     bool public created ;
     bool public active ;
-    uint256[] receviedDocs;
-    uint256[] sentDocs;
+    address[] recDocs;
+    
     
     constructor(address _account, string memory _name, string memory _pk) public{
         account = _account;
@@ -28,14 +28,19 @@ contract Company{
         return pk;
     }
     
+    function pushDoc(address docAddress) public{
+        recDocs.push(docAddress);
+    }
+
+    function getRecDocsArr(address owner) public view returns(address[] memory){
+        require(owner == account, "You are not the Owner Of this Account");
+        return recDocs;
+    }
+    
+    
+    
     // add two function to add in both rec and sent docs the index of the documents.................
     
-    function addRecDoc(uint256 _docIndex) public{
-        receviedDocs.push(_docIndex);
-    }
-    
-    function sendDoc(uint256 _docIndex) public{
-        sentDocs.push(_docIndex);
-    }
+
     
 }

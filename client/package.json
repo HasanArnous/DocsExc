@@ -3,12 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "bootstrap": "^4.5.2",
+    "cors": "^2.8.5",
     "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "multer": "^1.4.2",
+    "nodemon": "^2.0.4",
     "react": "16.11.0",
     "react-dom": "16.11.0",
-    "react-scripts": "^3.4.1",
+    "react-scripts": "^3.4.3",
     "web3": "1.2.2"
   },
+  
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -30,4 +36,5 @@
       "last 1 safari version"
     ]
   }
+  
 }

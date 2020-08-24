@@ -7,9 +7,7 @@ contract MyProject is Ownable {
     uint256 companies_index;
     address[] public companies_list;
     mapping(address => Company) public companies; 
-    
-    uint256 doc_index;
-    mapping(uint256 => Doc) public docs;
+    mapping(address => Doc) public docs;
     
     
     // EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS EVENTS
@@ -18,13 +16,24 @@ contract MyProject is Ownable {
     event inactiveCompany(address indexed _account);
     event unregisteredCompany(address indexed _account);
     event allCompanies(string _name, address indexed _account);
+    event docCreated(address indexed doc_id);
     
     
     // MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER MODIFIER
-    modifier doesCompanyExists(address _address){
+
+    // Does Company Exist
+    modifier DCE(address _address){
         require(address(companies[_address]) != 0x0000000000000000000000000000000000000000, "This Account was not registred yet!");
         _;
     }
+
+
+    // Does Company Active
+    modifier DCA(address _address){
+        require(companies[msg.sender].active(), "This Company is Not Active Yet");
+        _;
+    }
+
     modifier isRegAndActive(Company com){
         require(companies[msg.sender].created(), "Your account is not registred yet");
         require(companies[msg.sender].active(), "Your account is not activated yet");
@@ -32,12 +41,6 @@ contract MyProject is Ownable {
         require(com.active(), "the target account was not activated yet");
         _;
     }
-    modifier doesDocExists(uint256 docIndex){
-        require(address(docs[docIndex]) != 0x0000000000000000000000000000000000000000, "The requested document doesn't exists!");
-        _;
-    }
-    
-    
     
     
     /// FUNCTIONS FUNCTIONS FUNCTIONS FUNCTIONS FUNCTIONS FUNCTIONS FUNCTIONS FUNCTIONS FUNCTIONS FUNCTIONS
@@ -48,7 +51,7 @@ contract MyProject is Ownable {
             companies_index++;
     }
     
-    function activateComp(string memory _pk) public doesCompanyExists(msg.sender){
+    function activateComp(string memory _pk) public DCE(msg.sender){
         if(companies[msg.sender].created()){
             Company com = companies[msg.sender];
             if(!com.active()){
@@ -64,44 +67,60 @@ contract MyProject is Ownable {
         }
     }
 
-    function isActive() view external returns(bool isIt) {
-        return(companies[msg.sender].active());
+    function createDoc(string memory _signature, address _to_address) public DCE(msg.sender) DCE(_to_address) isRegAndActive(companies[_to_address]) returns(address){
+        Doc doc = new Doc(_signature, msg.sender, _to_address);
+        companies[_to_address].pushDoc(address(doc));
+        docs[address(doc)] = doc;
+        emit docCreated(address(doc));
     }
+
+    function doesCompEx(address _address) public view returns(bool){
+        return(address(companies[_address]) != 0x0000000000000000000000000000000000000000);
+    }
+
+    function doesCompActive(address _address) view external returns(bool) {
+        if(doesCompEx(_address)){
+            return(companies[_address].active());
+        }
+        else{
+            return false;
+        }
+    }
+
     
+    // | GETTER & CHECKER METHODS | GETTER & CHECKER METHODS | GETTER & CHECKER METHODS | GETTER & CHECKER METHODS |
     function getCompaniesNum() public view returns(uint256){
         return (companies_index);
     }
 
-    function getCompanyPK(address _address) public doesCompanyExists(address(companies[_address])) doesCompanyExists(address(companies[msg.sender]))
+    function getCompanyPK(address _address) public DCE(_address) DCE(msg.sender)
     isRegAndActive(companies[_address])view returns(string memory){
         return(companies[_address].getPK());
     }
-    
-    function createDoc(string memory _hash, address _to_address) public doesCompanyExists(msg.sender) doesCompanyExists(_to_address) isRegAndActive(companies[_to_address]){
-        Doc doc = new Doc(doc_index, _hash, msg.sender, _to_address);
-        //  docRec[doc_index] = _to_address;
-        //  docSend[doc_index] = msg.sender;
-        docs[doc_index] = doc;
-        doc_index++;
+
+
+    function getCompDocsArr() public DCE(msg.sender) view returns( address[] memory arr ){
+        Company c = companies[msg.sender];
+        return c.getRecDocsArr(msg.sender);
+    }
+
+    function getDoc(uint _docIndex) public view returns(address id, string memory signature, address from_address, address to_address)   {
+        address[] memory arr = getCompDocsArr();
+        uint len = arr.length;
+        require((_docIndex < len) && (_docIndex >= 0) , "getDoc function: request a document that out of the array boundry..");
+        
+        Doc doc = docs[address(arr[_docIndex])];
+        id = address(arr[_docIndex]);
+        signature = doc.signature();
+        from_address = doc.from_address();
+        to_address = doc.to_address();
     }
     
-    function getDocHash(uint _docIndex) public doesDocExists(_docIndex) view returns(string memory)  {
-        return(docs[_docIndex].hash());
-    }
-    
-    function getCompany(uint256 comp_index) public view returns(string memory _name, address _address){
+    function getCompany(uint256 comp_index) public view returns(string memory _name, address _address, bool _active){
         require(comp_index < companies_list.length, "getCompany function: request an index out of the array boundry..");
         _name = companies[companies_list[comp_index]].name();
         _address = companies_list[comp_index];
-    }
-    
-    function getAllCompanies() public pure {
-        
-    }
-    
-    function getAllmyRecDocs() public doesCompanyExists(msg.sender) isRegAndActive(companies[msg.sender]) returns (Doc){
-        // WHAT TO DO HERE ____________  t(-_-t)  ____________ USE THE COMPANY ALL RECEIVED DOCS AFTER ADDING THE ARRAY.
-        
+        _active = companies[companies_list[comp_index]].active();
     }
     
 }
