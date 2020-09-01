@@ -50,7 +50,7 @@ const ActiveCompanyDash = (props) =>
         ))}
       </select>
       <hr />
-      <br />
+      {/* <br />
       <h3>Encryption Block</h3>
         Message:&nbsp;<textarea row="5" name="messToEnc"></textarea>&nbsp;
       <button type="button" onClick={props.encryptMessage}>Encrypt</button>
@@ -58,15 +58,23 @@ const ActiveCompanyDash = (props) =>
       <button type="button" onClick={props.decryptMessage}>Decrypt</button>
       <br />
       <hr />
-      <br />
+      <br /> */}
       <br />
       {((props.is_selected_client) && (props.selected_client_pk !== "")) ? (
         <form method="post" action="#" id="#">
           <input type="file" name="file" onChange={props.inputOnChange} />
         </form>
         ) : ""}
-
-      <button type="button" className="btn btn-success btn-block" onClick={props.upload}>Upload</button> 
+        <br/>
+        <br/>
+     { ((props.successEncryp) && (props.successSigned)) ? (
+       <div>
+       <br/>
+       <label>File Description:</label>&nbsp;
+       <input name="file_desc" type="text" onChange={props.handleInputChange} placeholder="Maximume 20 Character!"></input>
+       <button type="button" className="btn btn-primary" onClick={props.upload}>Upload</button> 
+       </div>
+       ) : ""}
     </div>
   ) : (<p></p>);
 

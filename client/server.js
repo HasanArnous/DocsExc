@@ -2,14 +2,14 @@ var express = require('express');
 var app = express();
 var multer = require('multer')
 var cors = require('cors');
-require("dotenv").config({path:'./.env'});
+
 app.use(cors());
 
-const port = process.env.port;
+const port = 8081;
 
 var storage = multer.diskStorage({
     destination: function (req, file, cb) {
-    cb(null, 'public')
+    cb(null, 'uploads')
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + '-' +file.originalname )
@@ -18,7 +18,6 @@ var storage = multer.diskStorage({
 
 var upload = multer({ storage: storage }).single('file')
 
-
 app.post('/upload',function(req, res) {  
     upload(req, res, function (err) {
         if (err instanceof multer.MulterError) {
@@ -26,6 +25,7 @@ app.post('/upload',function(req, res) {
         } else if (err) {
             return res.status(500).json(err)
         }
+        console.log()
         return res.status(200).send(req.file)
     })
 });

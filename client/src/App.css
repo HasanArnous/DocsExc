@@ -103,3 +103,11 @@ background: #f5f5f5;
 color: #282f39;
 background: #f5f5f5;
 }
+
+.view-btn{
+  background-color: transparent;
+    text-decoration: underline;
+    color: #000333;
+    border: none;
+    width: 100%;
+}
