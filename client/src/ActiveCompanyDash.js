@@ -72,7 +72,7 @@ const ActiveCompanyDash = (props) =>
        <br/>
        <label>File Description:</label>&nbsp;
        <input name="file_desc" type="text" onChange={props.handleInputChange} placeholder="Maximume 20 Character!"></input>
-       <button type="button" className="btn btn-primary" onClick={props.upload}>Upload</button> 
+       <button type="button" className="my-btn" onClick={props.upload}>Upload</button> 
        </div>
        ) : ""}
     </div>

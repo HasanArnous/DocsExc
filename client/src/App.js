@@ -22,25 +22,42 @@ dotenv.config();
 
 class App extends Component {
   state = {
-    loaded: false, processing: false, port: null,
+    loaded: false, port: null,
     loaderClass: "page-loader-off", loaderImageClass: "page-loader-image-off",
-    isOwner: false, comp_name: "", comp_account: "", ThisAccount: "", thisAccountName: "",
-    comp_num: 0, comp_table: [], compHashMap: {},
+    mess_div_class: "mess_div_class_hide hide", message_txt: "",
+
+
+    isOwner: false,
+    isExists: false, isActive: false,  //               No Need to Describe               \\
+    ThisAccount: "",                  //             Hold The account address              \\
+    comp_name: "", comp_account: "", //    info from the txt-box at registration stage.     \\
+    thisAccountName: "",            // Hold the name of the company when is queried by index \\
+
+    //Get company by Index Stuff
     reqCompIndex: "", getCompName: "", getCompAddress: "", getCompActive: false,
-    isExists: false, isActive: false, 
-    userPK: "",
+
+    //Company table stuff
+    comp_num: 0, comp_table: [], compHashMap: {}, 
+    
+    userPK: "", // The provided Publick Key
+
+    // clients Drop Down Menu Stuff
     selected_client: 0, is_selected_client: false, selected_client_pk: "",
-    selectedFile: null, successEncode: false, successEncryp: false, 
-    signature: "", successSigned: false,
+
+    // Select a file, Sign it, Encrypt it, upload it (register on the blockchain)
+    selectedFile: null, successEncode: false, fileAsJSON: {}, 
+    messToEnc: "", // it's the b64 version of the file used on signing process.
+    signature: "", successSigned: false,  successEncryp: false,
     file_desc: "", uploadTime: "",
 
-    successDecryp: false, decryptedFile: {}, decryptedFileObj: null,
-    fileAsJSON: {}, messToEnc: "",
-    encMess: "", decMess: "", fileURL: "", iframeSrc: "", iframeVis: "none",
+    // Deals with creating the inbox document of the company.
+    compDocsArr: [], allComDocs: [], 
 
-    compDocsArr: [], allComDocs: [],
-
-    mess_div_class: "mess_div_class_hide hide", message_txt: "",
+    // Decrypt the requested file and display it
+    fileAsJSONDecryp: {}, encMess: "", 
+    decMess: "", successDecryp: false,
+    decryptedFile: {}, decryptedFileObj: null,
+    fileURL: "", iframeSrc: "", iframeVis: "none",
 
   };
 
@@ -153,8 +170,6 @@ class App extends Component {
     });
   }
 
-
-
   handleInit = async () => {
     this.showLoader();
     await this.getThisAccount();
@@ -265,8 +280,6 @@ class App extends Component {
     this.setState({ thisAccountName: _name })
   }
 
-
-
   getThisAccount = async () => {
     let ff = await this.accounts[0];
     this.setState({ ThisAccount: ff });
@@ -309,7 +322,7 @@ class App extends Component {
       this.showLoader();
       if (this.state.isExists) {
         if (!this.state.isActive) {
-          this.activateMyCompany();
+          await this.activateMyCompany();
         }
       }
       this.hideLoader();
@@ -321,7 +334,6 @@ class App extends Component {
 
   activateMyCompany = async => {
     try {
-      this.showLoader()
       const t = this;
       this.ethereum.sendAsync(
         {
@@ -333,19 +345,24 @@ class App extends Component {
         function (error, encryptionpublickey) {
           if (!error) {
             window.encryptionpublickey = encryptionpublickey.result;
+            t.showLoader()
             t.MyProject_ins.methods.activateComp(window.encryptionpublickey).send({ from: t.accounts[0] }).then(
               () => {
                 t.setState({ isActive: true });
                 t.showMessage(`Your account has been activated successfully!`, "g");
                 t.checkUserPK();
                 t.BuildCompaniesTable();
+                t.hideLoader();
+              },
+              (err)=>{
+                t.catchError(err);
               }
             );
           } else {
             console.error(error);
             t.showMessage(error.message, "r");
+            t.hideLoader();
           }
-          t.hideLoader();
         }
       );
     }
@@ -446,7 +463,6 @@ class App extends Component {
       if (file != null) {
         var reader = new FileReader();
         reader.onloadend = function () {
-          console.log("readAsDataURL OUTPUT:", reader.result);
           var b64 = reader.result.replace(/^data:.+;base64,/, '');
           setMess(b64);
         };
@@ -456,8 +472,9 @@ class App extends Component {
           var fileAsJSON = { "name": file.name, "lastModified": file.lastModified, "size": file.size, "type": file.type, "b64Data": result }
           this.setState({ messToEnc: result, fileAsJSON: fileAsJSON, successEncode: true })
           await this.sign();
-          await this.encryptMessage();
-
+          if(this.state.successSigned){
+            await this.encryptMessage();
+          }
         }
       }
       this.hideLoader();
@@ -470,29 +487,35 @@ class App extends Component {
   sign = async () => {
     try {
       this.showLoader();
+      let isSigned=false;
       alert("Please Sign On the 64Encoded Data To Maintain the Data Integrity.")
       let sha = this.state.messToEnc;
-
       var sig;
-      await this.web3.eth.personal.sign(sha, this.accounts[0]).then((res) => { sig = res; });
+      await this.web3.eth.personal.sign(sha, this.accounts[0]).then(
+        (res) => { sig = res; isSigned = true;},
+        (err) => {this.catchError(err)}
+        );
 
-      const signer = EthCrypto.recoverPublicKey(
-        sig, // signature
-        this.web3.eth.accounts.hashMessage(sha) // message hash
-      );
+      // const signer = EthCrypto.recoverPublicKey(
+      //   sig, // signature
+      //   this.web3.eth.accounts.hashMessage(sha) // message hash
+      // ); don't cry 
 
-      console.log("PK: ", signer);
-      const Uaddress = EthCrypto.recover(
-        sig,
-        this.web3.eth.accounts.hashMessage(sha) // message hash
-      );
-      if (Uaddress === this.accounts[0]) {
-        this.setState({ signature: sig, successSigned: true })
+      //          verify
+      if(isSigned){
+        const Uaddress = EthCrypto.recover(
+          sig,
+          this.web3.eth.accounts.hashMessage(sha) // message hash
+        );
+        if (Uaddress === this.accounts[0]) {
+          this.setState({ signature: sig, successSigned: true })
+        }
+        else {
+          this.setState({ signature: "", successSigned: false })
+          this.showMessage("Failed To Sign Data, Please Try Again", "y");
+        }
       }
-      else {
-        this.setState({ signature: "", successSigned: false })
-        this.showMessage("Failed To Sign Data, Please Try Again", "y");
-      }
+      
       this.hideLoader();
 
 
@@ -510,7 +533,7 @@ class App extends Component {
       this.showLoader();
       var sigUtil = require('eth-sig-util')
       const fileAsJSON = this.state.fileAsJSON;
-      const mess = fileAsJSON.b64Data; //this.state.messToEnc;
+      const mess = fileAsJSON.b64Data; //
       if (this.state.successEncode) {//this.state.selected_client_pk;//
         //let CompPK = await this.MyProject_ins.methods.getCompanyPK(this.accounts[0]).call({ from: this.accounts[0] });
         let CompPK = this.state.selected_client_pk;
@@ -606,36 +629,6 @@ class App extends Component {
       response.on('error', (error) => {
         // read about how to recover from error on the fetch method......
       })
-
-
-
-      // var http = require('http');
-      // var option = {
-      //   hostname: "localhost",
-      //   port: 8082,
-      //   method: "GET",
-      //   path: "/dateTime",
-      //   headers: {
-      //     'Content-Type': 'text/html'
-      //   }
-      // }
-      // var request = http.request(option, (resp) => {
-      //   let body = [];
-      //   resp.on('data', (chunk) => {
-      //     body.push(chunk);
-      //   }).on('end', () => {
-      //     body = Buffer.concat(body).toString();
-      //     this.setState({uploadTime:body});
-      //   });
-      // })
-      // request.end();
-
-
-      // request.on('error', (error) => {
-      //   console.error(error)
-      //   this.showMessage(error.message, "r");
-      // })
-
     }
     catch (error) {
       this.catchError(error);
@@ -646,6 +639,7 @@ class App extends Component {
   upload = async () => {
     try {
       let file_desc = this.state.file_desc;
+      //specify the length of the description to reduce the gas fees .. .. ..
       if (file_desc.length <= 20 && file_desc.length > 0) {
         this.showLoader();
         if ((this.state.successSigned) && (this.state.signature !== "") && (this.state.is_selected_client) && (this.state.selected_client_pk !== "")) {
@@ -727,18 +721,13 @@ class App extends Component {
     }
   }
 
-
-
   getDoc = async event => {
     try {
       var doc_id = event.target.id;
       let fileInfo = {};
       fileInfo.account = this.accounts[0];
       fileInfo.fileName = doc_id;
-      console.log("aaaaaaaaaaaaaaaa");
-      console.log(doc_id);
       fileInfo = JSON.stringify(fileInfo, null, 2)
-      console.log("bbbbbbbbbbb");
       let respBody = [];
       var http = require('http');
 
@@ -757,11 +746,9 @@ class App extends Component {
           resp.on('data', (chunks) => {
             respBody.push(chunks);
           }).on('end', () => {
-            console.log("finished reading the respond body");
             respBody = Buffer.concat(respBody).toString();
             let file = JSON.parse(respBody);
-            console.log(file);
-            this.setState({ fileAsJSON: file, encMess: file.b64Data })
+            this.setState({ fileAsJSONDecryp: file, encMess: file.b64Data })
             this.decryptMess();
           })
         }
@@ -793,7 +780,7 @@ class App extends Component {
           params: [t.state.encMess, t.accounts[0]],
         })
         .then((decMess) => {
-          this.setState({ decFile: decMess })
+          this.setState({ decMess: decMess })
           this.checkAndDisplay();
         })
         .catch((error) => {
@@ -810,20 +797,19 @@ class App extends Component {
   checkAndDisplay = async () => {
     try {
       //check integrity:
-      let doc = await this.MyProject_ins.methods.getDocByAdd(this.state.fileAsJSON.id).call();
+      let doc = await this.MyProject_ins.methods.getDocByAdd(this.state.fileAsJSONDecryp.id).call();
       const { 0: signature, 2: from_addresss } = doc; // 1:desc  3:to_address
-      let decFile = this.state.decFile;
+      let decMess = this.state.decMess;
 
       if (signature !== 0) {
         const Uaddress = EthCrypto.recover(
           signature,
-          this.web3.eth.accounts.hashMessage(decFile) // message hash
+          this.web3.eth.accounts.hashMessage(decMess) // message hash
         );
         if (Uaddress === from_addresss) {
-          console.log("successfully decr");
-          let fileAsJSON = this.state.fileAsJSON;
+          let fileAsJSON = this.state.fileAsJSONDecryp;
           let decryptedFile = {
-            "b64Data": decFile,
+            "b64Data": decMess,
             "desc": fileAsJSON.desc,
             "from": fileAsJSON.from,
             "id": fileAsJSON.id,
@@ -835,8 +821,9 @@ class App extends Component {
             "uploadedAt": fileAsJSON.uploadedAt
           }
 
-          let src = "data:" + decryptedFile.type + ";base64," + decFile;//+", name:"+t.state.fileAsJSON.name;
-          this.setState({ fileURL: src, iframeSrc: src, successDecryp: true, decryptedFile: decryptedFile });
+          let src = "data:" + decryptedFile.type + ";base64," + decMess;//+", name:"+t.state.fileAsJSON.name;
+          this.setState({ fileURL: src, iframeSrc: src, successDecryp: true, decryptedFile: decryptedFile, 
+            displayFile : true });
           if ((decryptedFile.type === "application/pdf") ||
             (decryptedFile.type === "text/plain") ||
             (decryptedFile.type === "image/jpeg") ||
@@ -871,12 +858,9 @@ class App extends Component {
       let newWindow = window.open("");
       newWindow.document.head.title = this.state.decryptedFile.name;
       newWindow.document.title = this.state.decryptedFile.name
-      // newWindow.document.write(
-      //   "<iframe width='100%' height='100%' src='data:" + this.state.decryptedFile.type + ";base64, " +
-      //   encodeURI(this.state.decryptedFile.b64Data) + "'></iframe>"
-      // )
 
-      var content = atob(this.state.decryptedFile.b64Data);
+
+     var content = atob(this.state.decryptedFile.b64Data);
       // create an ArrayBuffer and a view (as unsigned 8-bit)
       var buffer = new ArrayBuffer(content.length);
       var view = new Uint8Array(buffer);
@@ -886,15 +870,8 @@ class App extends Component {
       }
       // convert ArrayBuffer to Blob
       var blob = new Blob([buffer], { type: this.state.decryptedFile.type });
-      console.log(blob);
-      //return blob;
-      //let newWindow = window.open("")
-
       var url = URL.createObjectURL(blob);
 
-
-
-      newWindow.document.title = this.state.decryptedFile.name
       newWindow.document.write(
         "<iframe width='100%' height='100%' src=" + url + " title='" + this.state.decryptedFile.name + "'></iframe>"
       )
@@ -916,11 +893,11 @@ class App extends Component {
     downloadLink.click();
   }
 
-  seeFile2 = () => {
-    var file = this.dataURLtoFile(`data:${this.state.decryptedFile.type};base64,${this.state.decryptedFile.b64Data}`,
-      this.state.decryptedFile.name)
-    console.log(file);
-    this.setState({ decryptedFileObj: file })
+  closeIframe = ()=>{
+    document.getElementById('fileViewer').style.display="none";
+    this.setState({displayFile:false,fileURL:"", iframeSrc: "", successDecryp: false, decryptedFile: {},
+    iframeVis: "none",  decMess:"", fileAsJSONDecryp:{} });
+    this.hideMessage();
   }
 
   render() {
@@ -932,7 +909,7 @@ class App extends Component {
         <div className="App-header">
           <h1 style={{ textDecoration: "underline" }}>Documents Exchange Project</h1>
           <br />
-          <h2>Exchange Document Through Blockchain Technology Powered by Ethereum</h2>
+          <h2>Exchange Documents Through Blockchain Technology Powered by Ethereum and MetaMask</h2>
           <h2>Using Encryption and Decryption Completly on the Client Side</h2>
         </div>
         <div id="mess" className={this.state.mess_div_class}>
@@ -956,11 +933,6 @@ class App extends Component {
             <br />
           </div>
 
-
-
-
-
-
           {
             this.state.isExists && this.state.isActive ? (
               <div>
@@ -969,7 +941,7 @@ class App extends Component {
                 <h3>companies Number: {this.state.comp_num}</h3>
                 Get a Company Details By Index:&nbsp;
                 <input type="text" name="reqCompIndex" value={this.state.reqCompIndex} onChange={this.handleInputChange}></input>&nbsp;
-                <button type="button" onClick={this.getCompDetails}>Get Details!</button>
+                <button type="button" onClick={this.getCompDetails} className="my-btn">Get Details!</button>
                 <br />
                 {this.state.getCompName}&nbsp;&nbsp;&nbsp;{this.state.getCompAddress}
                 <hr />
@@ -1012,23 +984,24 @@ class App extends Component {
                     company._active ? <option key={company._address} value={company._address}>{company._name}</option> : ""
                   ))}
                 </select>
-                <hr />
+                
                 <br />
                 {((this.state.is_selected_client) && (this.state.selected_client_pk !== "")) ? (
-                  <form method="post" action="#" id="#">
+                  <form method="post" action="#" id="#" style={{margin:"12px 0"}}>
                     <input type="file" name="file" onChange={this.inputOnChange} />
                   </form>
                 ) : ""}
-                <br />
-                <br />
                 {((this.state.successEncryp) && (this.state.successSigned)) ? (
                   <div>
                     <br />
                     <label>File Description:</label>&nbsp;
                     <input name="file_desc" type="text" onChange={this.handleInputChange} placeholder="Maximume 20 Characters!"></input>
-                    <button type="button" className="btn btn-primary" onClick={this.upload}>Upload</button>
+                    <button type="button" className="my-btn" onClick={this.upload}
+                    style={{marginLeft:"12px"}}>Upload</button>
+                    
                   </div>
                 ) : ""}
+                <hr />
               </div>
             ) : (<p></p>)
           }
@@ -1091,15 +1064,19 @@ class App extends Component {
           ) : ("")}
 
           <UndefiendCompanyDash isActive={this.state.isActive} isExists={this.state.isExists} isOwner={this.state.isOwner} />
+          <div style={{width: "80%", margin: "12px auto 32px auto"}}>
+            {this.state.displayFile ? (<div style={{ marginTop: "24px" }}>
+              <button type="button" className="my-btn" onClick={this.seeFile} style={{ marginRight: "2px" }}>See File</button>
+              <button type="button" className="my-btn" onClick={this.downloadFile}>Download File</button>
+              <span onClick={this.closeIframe} style={{cursor:"pointer", float:"right", marginBottom:"0",
+               display: this.state.iframeVis }} role="img" aria-label="close">&#10060;</span>
+            </div>) : ""}
 
-          {this.state.successDecryp ? (<div style={{ marginTop: "24px", textAlign: "center" }}>
-            <button type="button" onClick={this.seeFile} style={{ marginRight: "24px" }}>See File</button>
-            <button type="button" onClick={this.downloadFile}>Download File</button>
-          </div>) : ""}
+            <iframe id="fileViewer" style={{ width: "100%", height: "800px", display: this.state.iframeVis}}
+              title={this.state.decryptedFile.name} src={this.state.iframeSrc} datatype={this.state.decryptedFile.type} >
+            </iframe>
+          </div>
 
-          <iframe id="fileViewer" style={{ width: "80%", height: "800px", display: this.state.iframeVis, margin: "12px auto 32px auto" }}
-            title={this.state.decryptedFile.name} src={this.state.iframeSrc} datatype={this.state.decryptedFile.type} >
-          </iframe>
         </div>
       </div>
     );

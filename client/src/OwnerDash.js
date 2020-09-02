@@ -27,7 +27,8 @@ const OwnerDash = (props) =>
 
                         </td>
                         <td colSpan="2" style={{ float: "left" }}>
-                            <button type="button" onClick={props.registerCompany}>Register!</button>
+                            <button type="button" className="my-btn"
+                            onClick={props.registerCompany}>Register!</button>
                         </td>
                     </tr>
                 </tbody>
