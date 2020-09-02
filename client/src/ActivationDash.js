@@ -8,7 +8,7 @@ const ActivationDash = (props) =>
         <button type="button" onClick={props.activateCompany}>Activate !</button>
         <hr />
     </div>
-     ):(<p></p>);
+     ):"";
         
 
 export default ActivationDash;
