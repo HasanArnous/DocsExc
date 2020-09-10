@@ -3,11 +3,15 @@ var app = express();
 var url = require('url');
 var fs = require('fs');
 var cors = require('cors');
+var path = require('path')
+
+
+const appJS = path.join(__dirname, 'src', 'App.js');
 
 const dotenv = require("dotenv")
 dotenv.config();
 
-const port = process.env.PORT;
+const port = process.env.SERVER_PORT;
 const upload_dir = process.env.UPLOAD_DIR;
 
 
@@ -16,6 +20,14 @@ app.use(cors());
 
 var originalJSON;
 
+app.get(('/'), (req,res)=>{
+    try{
+        res.end("t(-_-t)")
+    }
+    catch(error){
+        console.log(error);
+    }
+})
 
 app.get(('/dateTime'), (req, res) =>{
     try {

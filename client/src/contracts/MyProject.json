@@ -15692,6 +15692,97 @@
       "address": "0x67028bf860De86DEBe0c089BE17986995fAa8358",
       "transactionHash": "0x8bb2e2337587bbacda991fac4b6b858d0973f9a219cd3e15e5a2d0bd6d1d10f5"
     },
+    "1023": {
+      "events": {
+        "0xfd9b496a611842151a528c49214ad7c7a283d524e5b1984de5b6190cd220401a": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "string",
+              "name": "_name",
+              "type": "string"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "_account",
+              "type": "address"
+            }
+          ],
+          "name": "allCompanies",
+          "type": "event"
+        },
+        "0x565d1ad1f310d4f0ae5052bc3433636299177faef0ae0d80ab9cd6939780978a": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "_account",
+              "type": "address"
+            }
+          ],
+          "name": "alreadyRegis",
+          "type": "event"
+        },
+        "0x4ceea6b21cdad1c331f444b7e6b58ad490efd94515e032a52704cb5c54e741ca": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "doc_id",
+              "type": "address"
+            }
+          ],
+          "name": "docCreated",
+          "type": "event"
+        },
+        "0xbf7d116f77e0d3be2303ec3ca2af1384e1eb92be19c239d565d5845c62d6b05c": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "_account",
+              "type": "address"
+            }
+          ],
+          "name": "inactiveCompany",
+          "type": "event"
+        },
+        "0xdcbbda8d972a4ddeffe4d187e2c8f317bb27fd4f50981ba35065e50134047e53": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "_companies_index",
+              "type": "uint256"
+            }
+          ],
+          "name": "successRegis",
+          "type": "event"
+        },
+        "0x1de9c2364187e2be709ce388547328dcb61a71b4490667b394b07b58caf9debc": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "_account",
+              "type": "address"
+            }
+          ],
+          "name": "unregisteredCompany",
+          "type": "event"
+        }
+      },
+      "links": {},
+      "address": "0x700113f788404486Cf6F28c09799188C8C95ee74",
+      "transactionHash": "0x2339b2b06aef26f235d9a92ebdbddb2084f01cd854f3c14ce7919adc915f16fc"
+    },
     "5777": {
       "events": {
         "0xfd9b496a611842151a528c49214ad7c7a283d524e5b1984de5b6190cd220401a": {
@@ -15819,12 +15910,12 @@
         }
       },
       "links": {},
-      "address": "0xe20Fe0b1dDD70D377764add426d825a2D516C1FF",
-      "transactionHash": "0x2ab11e015b2841f8231ee5fce8843ac0c819e52743b7f523c9c6fd3f3ccb1343"
+      "address": "0x1b06aa7c9D51e8bD5220a792a5a0c333735799AD",
+      "transactionHash": "0x5750ea011bd84170343766ae8d2b61de3278ba7e6cb6a2597c8823b667e96b8d"
     }
   },
   "schemaVersion": "3.2.2",
-  "updatedAt": "2020-09-02T10:12:01.951Z",
+  "updatedAt": "2020-09-10T07:45:40.880Z",
   "networkType": "ethereum",
   "devdoc": {
     "methods": {}

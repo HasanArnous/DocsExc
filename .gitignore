@@ -1,6 +1,9 @@
 .env
+MyMnomenic.env
 client/.env
 client/uploads/
 
 client/src/.gitignore
 client/.gitignore
+
+

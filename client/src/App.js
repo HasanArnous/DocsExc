@@ -1,24 +1,15 @@
 import React, { Component } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
 import OwnerDash from "./OwnerDash";
 import ActivationDash from "./ActivationDash";
-//import ActiveCompanyDash from "./ActiveCompanyDash"
 import UndefiendCompanyDash from "./UndefiendCompanyDash";
 import MyProject from "./contracts/MyProject.json";
 import getWeb3 from "./getWeb3";
 import EthCrypto from 'eth-crypto';
 import loader from './loader.gif';
-//import axios from 'axios';
 import "./App.css";
-
+import 'bootstrap/dist/css/bootstrap.css';
+require("dotenv").config();
 //require("dotenv").config({ path: './.env' });
-const dotenv = require("dotenv")
-dotenv.config();
-
-
-//import detectEthereumProvider from '@metamask/detect-provider';
-//import { useTable } from "react-table";
-
 
 class App extends Component {
   state = {
@@ -27,7 +18,7 @@ class App extends Component {
     mess_div_class: "mess_div_class_hide hide", message_txt: "",
 
 
-    isOwner: false,
+    isOwner: false, owner: null,
     isExists: false, isActive: false,  //               No Need to Describe               \\
     ThisAccount: "",                  //             Hold The account address              \\
     comp_name: "", comp_account: "", //    info from the txt-box at registration stage.     \\
@@ -37,24 +28,24 @@ class App extends Component {
     reqCompIndex: "", getCompName: "", getCompAddress: "", getCompActive: false,
 
     //Company table stuff
-    comp_num: 0, comp_table: [], compHashMap: {}, 
-    
+    comp_num: 0, comp_table: [], compHashMap: {},
+
     userPK: "", // The provided Publick Key
 
     // clients Drop Down Menu Stuff
     selected_client: 0, is_selected_client: false, selected_client_pk: "",
 
     // Select a file, Sign it, Encrypt it, upload it (register on the blockchain)
-    selectedFile: null, successEncode: false, fileAsJSON: {}, 
+    selectedFile: null, successEncode: false, fileAsJSON: {},
     messToEnc: "", // it's the b64 version of the file used on signing process.
-    signature: "", successSigned: false,  successEncryp: false,
+    signature: "", successSigned: false, successEncryp: false,
     file_desc: "", uploadTime: "",
 
     // Deals with creating the inbox document of the company.
-    compDocsArr: [], allComDocs: [], 
+    compDocsArr: [], allComDocs: [],
 
     // Decrypt the requested file and display it
-    fileAsJSONDecryp: {}, encMess: "", 
+    fileAsJSONDecryp: {}, encMess: "",
     decMess: "", successDecryp: false,
     decryptedFile: {}, decryptedFileObj: null,
     fileURL: "", iframeSrc: "", iframeVis: "none",
@@ -176,20 +167,25 @@ class App extends Component {
     await this.checkOwner();
     await this.doesCompEx();
 
-    if (process.env.PORT != null) {
-      this.setState({ port: process.env.PORT })
+
+
+    if (process.env.SERVER_PORT != null) {
+      this.setState({ port: process.env.SERVER_PORT });
     }
     else {
       this.setState({ port: 8080 })
     }
+    console.log("this is the port Number:", this.state.port);
+    console.log("this is the process.env.SERVER_PORT:", process.env.SERVER_PORT);
 
     this.hideLoader();
   };
 
   checkOwner = async () => {
     try {
-      let isOwnerCall = await this.MyProject_ins.methods.isOwner().call({ from: this.accounts[0] });
-      this.setState({ isOwner: isOwnerCall });
+      let owner = await this.MyProject_ins.methods.owner().call();
+      let isOwner = (this.accounts[0] === owner)
+      this.setState({ isOwner: isOwner, owner: owner });
     }
     catch (error) {
       this.catchError(error);
@@ -335,36 +331,33 @@ class App extends Component {
   activateMyCompany = async => {
     try {
       const t = this;
-      this.ethereum.sendAsync(
-        {
-          jsonrpc: '2.0',
-          method: 'eth_getEncryptionPublicKey',
-          params: [this.accounts[0]],
-          from: this.accounts[0],
-        },
-        function (error, encryptionpublickey) {
-          if (!error) {
-            window.encryptionpublickey = encryptionpublickey.result;
-            t.showLoader()
-            t.MyProject_ins.methods.activateComp(window.encryptionpublickey).send({ from: t.accounts[0] }).then(
-              () => {
-                t.setState({ isActive: true });
-                t.showMessage(`Your account has been activated successfully!`, "g");
-                t.checkUserPK();
-                t.BuildCompaniesTable();
-                t.hideLoader();
-              },
-              (err)=>{
-                t.catchError(err);
-              }
-            );
-          } else {
-            console.error(error);
-            t.showMessage(error.message, "r");
+
+
+      this.ethereum.request({
+        method: 'eth_getEncryptionPublicKey',
+        params: [t.accounts[0]]
+      }).then(result => {
+        window.encryptionpublickey = result;
+        t.showLoader();
+        t.MyProject_ins.methods.activateComp(window.encryptionpublickey).send({ from: t.accounts[0] }).then(
+          () => {
+            t.setState({ isActive: true });
+            t.showMessage(`Your account has been activated successfully!`, "g");
+            t.checkUserPK();
+            t.BuildCompaniesTable();
             t.hideLoader();
-          }
+          },
+          (err) => {
+            t.catchError(err);
+          })
+      }).catch(error => {
+        if (error.code === 4001) {
+          // EIP-1193 userRejectedRequest error
+          console.log('We can encrypt anything without the key.');
+        } else {
+          t.catchError(error);
         }
-      );
+      })
     }
     catch (error) {
       this.catchError(error);
@@ -468,11 +461,11 @@ class App extends Component {
         };
         reader.readAsDataURL(file);
 
-        var setMess = async(result) => {
+        var setMess = async (result) => {
           var fileAsJSON = { "name": file.name, "lastModified": file.lastModified, "size": file.size, "type": file.type, "b64Data": result }
           this.setState({ messToEnc: result, fileAsJSON: fileAsJSON, successEncode: true })
           await this.sign();
-          if(this.state.successSigned){
+          if (this.state.successSigned) {
             await this.encryptMessage();
           }
         }
@@ -487,14 +480,14 @@ class App extends Component {
   sign = async () => {
     try {
       this.showLoader();
-      let isSigned=false;
+      let isSigned = false;
       alert("Please Sign On the 64Encoded Data To Maintain the Data Integrity.")
       let sha = this.state.messToEnc;
       var sig;
       await this.web3.eth.personal.sign(sha, this.accounts[0]).then(
-        (res) => { sig = res; isSigned = true;},
-        (err) => {this.catchError(err)}
-        );
+        (res) => { sig = res; isSigned = true; },
+        (err) => { this.catchError(err) }
+      );
 
       // const signer = EthCrypto.recoverPublicKey(
       //   sig, // signature
@@ -502,7 +495,7 @@ class App extends Component {
       // ); don't cry 
 
       //          verify
-      if(isSigned){
+      if (isSigned) {
         const Uaddress = EthCrypto.recover(
           sig,
           this.web3.eth.accounts.hashMessage(sha) // message hash
@@ -515,7 +508,7 @@ class App extends Component {
           this.showMessage("Failed To Sign Data, Please Try Again", "y");
         }
       }
-      
+
       this.hideLoader();
 
 
@@ -622,7 +615,7 @@ class App extends Component {
       this.showLoader();
 
 
-      var response = await fetch("http://localhost:8082/dateTime");
+      var response = await fetch("http://localhost:" + this.state.port + "/dateTime");
       const uploadTime = await response.json();
       this.setState({ uploadTime: uploadTime });
       this.hideLoader();
@@ -723,6 +716,7 @@ class App extends Component {
 
   getDoc = async event => {
     try {
+      this.showLoader();
       var doc_id = event.target.id;
       let fileInfo = {};
       fileInfo.account = this.accounts[0];
@@ -741,6 +735,7 @@ class App extends Component {
           'Content-Length': fileInfo.length
         }
       }
+
       const req = await http.request(option, (resp) => {
         if (resp.statusCode === 200) {
           resp.on('data', (chunks) => {
@@ -749,16 +744,19 @@ class App extends Component {
             respBody = Buffer.concat(respBody).toString();
             let file = JSON.parse(respBody);
             this.setState({ fileAsJSONDecryp: file, encMess: file.b64Data })
+            //console.log(file);
             this.decryptMess();
+            //this.hideLoader();
           })
         }
         else {
           console.log(resp.statusMessage);
           console.log(resp.statusCode);
+          this.hideLoader();
         }
       })
       req.on('error', (error) => {
-        console.error(error);
+        this.catchError(error);
       })
 
       req.write(fileInfo);
@@ -773,7 +771,8 @@ class App extends Component {
     try {
       const t = this;
       this.showLoader();
-
+      //console.log(t.state.encMess);
+      //console.log(t.accounts[0]);
       this.ethereum
         .request({
           method: 'eth_decrypt',
@@ -821,9 +820,11 @@ class App extends Component {
             "uploadedAt": fileAsJSON.uploadedAt
           }
 
-          let src = "data:" + decryptedFile.type + ";base64," + decMess;//+", name:"+t.state.fileAsJSON.name;
-          this.setState({ fileURL: src, iframeSrc: src, successDecryp: true, decryptedFile: decryptedFile, 
-            displayFile : true });
+          let src = `data:${decryptedFile.type};base64,${decryptedFile.b64Data}`;//+", name:"+t.state.fileAsJSON.name;
+          this.setState({
+            fileURL: src, iframeSrc: src, successDecryp: true, decryptedFile: decryptedFile,
+            displayFile: true
+          });
           if ((decryptedFile.type === "application/pdf") ||
             (decryptedFile.type === "text/plain") ||
             (decryptedFile.type === "image/jpeg") ||
@@ -860,7 +861,7 @@ class App extends Component {
       newWindow.document.title = this.state.decryptedFile.name
 
 
-     var content = atob(this.state.decryptedFile.b64Data);
+      var content = atob(this.state.decryptedFile.b64Data);
       // create an ArrayBuffer and a view (as unsigned 8-bit)
       var buffer = new ArrayBuffer(content.length);
       var view = new Uint8Array(buffer);
@@ -870,10 +871,13 @@ class App extends Component {
       }
       // convert ArrayBuffer to Blob
       var blob = new Blob([buffer], { type: this.state.decryptedFile.type });
-      var url = URL.createObjectURL(blob);
-
+      //var url = URL.createObjectURL(blob);
+      //console.log(blob);
       newWindow.document.write(
-        "<iframe width='100%' height='100%' src=" + url + " title='" + this.state.decryptedFile.name + "'></iframe>"
+        `<iframe width="100%" height="100%" 
+        src="data:${this.state.decryptedFile.type};base64,${this.state.decryptedFile.b64Data}"
+        title="${this.state.decryptedFile.name}" ></iframe>`
+        //"<iframe width='100%' height='100%' src=" + url + " title='" + this.state.decryptedFile.name + "'></iframe>"
       )
 
     }
@@ -893,10 +897,12 @@ class App extends Component {
     downloadLink.click();
   }
 
-  closeIframe = ()=>{
-    document.getElementById('fileViewer').style.display="none";
-    this.setState({displayFile:false,fileURL:"", iframeSrc: "", successDecryp: false, decryptedFile: {},
-    iframeVis: "none",  decMess:"", fileAsJSONDecryp:{} });
+  closeIframe = () => {
+    document.getElementById('fileViewer').style.display = "none";
+    this.setState({
+      displayFile: false, fileURL: "", iframeSrc: "", successDecryp: false, decryptedFile: {},
+      iframeVis: "none", decMess: "", fileAsJSONDecryp: {}
+    });
     this.hideMessage();
   }
 
@@ -954,11 +960,11 @@ class App extends Component {
                   </thead>
                   <tbody>
                     {this.state.comp_table.map((company, i) => (
-                      <tr key={"comp_tr_" + i} 
-                      style={{
-                         backgroundColor : (company._address === this.accounts[0] ? "#89a59d" : "transparent") ,
-                         color: (company._address === this.accounts[0] ? "white" : "#000333")
-                      }}>
+                      <tr key={"comp_tr_" + i}
+                        style={{
+                          backgroundColor: (company._address === this.accounts[0] ? "#89a59d" : "transparent"),
+                          color: (company._address === this.accounts[0] ? "white" : "#000333")
+                        }}>
                         <td>
                           {i + 1}
                         </td>
@@ -984,10 +990,10 @@ class App extends Component {
                     company._active ? <option key={company._address} value={company._address}>{company._name}</option> : ""
                   ))}
                 </select>
-                
+
                 <br />
                 {((this.state.is_selected_client) && (this.state.selected_client_pk !== "")) ? (
-                  <form method="post" action="#" id="#" style={{margin:"12px 0"}}>
+                  <form method="post" action="#" id="#" style={{ margin: "12px 0" }}>
                     <input type="file" name="file" onChange={this.inputOnChange} />
                   </form>
                 ) : ""}
@@ -997,8 +1003,8 @@ class App extends Component {
                     <label>File Description:</label>&nbsp;
                     <input name="file_desc" type="text" onChange={this.handleInputChange} placeholder="Maximume 20 Characters!"></input>
                     <button type="button" className="my-btn" onClick={this.upload}
-                    style={{marginLeft:"12px"}}>Upload</button>
-                    
+                      style={{ marginLeft: "12px" }}>Upload</button>
+
                   </div>
                 ) : ""}
                 <hr />
@@ -1006,32 +1012,7 @@ class App extends Component {
             ) : (<p></p>)
           }
 
-
-
-
-
-          {/* <ActiveCompanyDash isExists={this.state.isExists} isActive={this.state.isActive}
-            userPK={this.state.userPK} comp_num={this.state.comp_num} reqCompIndex={this.state.reqCompIndex}
-            getCompName={this.state.getCompName} getCompAddress={this.state.getCompAddress}
-            comp_table={this.state.comp_table}
-            is_selected_client={this.state.is_selected_client}
-            selected_client={this.state.selected_client}
-            selected_client_pk={this.state.selected_client_pk}
-            encMess={this.state.encMess} successEncryp={this.state.successEncryp}
-            successSigned={this.state.successSigned}
-            decMess={this.state.decMess}
-            handleInputChange={this.handleInputChange}
-            handleClientSelect={this.handleClientSelect}
-            getCompDetails={this.getCompDetails}
-            encryptMessage={this.encryptMessage}
-            decryptMessage={this.decryptMessage}
-            inputOnChange={this.inputOnChange}
-            upload={this.upload}
-          /> */}
-
-
           {this.state.compDocsArr.length > 0 ? (
-
             <div>
               <h3>Documents Received </h3>
               <table className="company_table">
@@ -1064,15 +1045,17 @@ class App extends Component {
           ) : ("")}
 
           <UndefiendCompanyDash isActive={this.state.isActive} isExists={this.state.isExists} isOwner={this.state.isOwner} />
-          <div style={{width: "80%", margin: "12px auto 32px auto"}}>
+          <div style={{ width: "80%", margin: "12px auto 32px auto" }}>
             {this.state.displayFile ? (<div style={{ marginTop: "24px" }}>
               <button type="button" className="my-btn" onClick={this.seeFile} style={{ marginRight: "2px" }}>See File</button>
               <button type="button" className="my-btn" onClick={this.downloadFile}>Download File</button>
-              <span onClick={this.closeIframe} style={{cursor:"pointer", float:"right", marginBottom:"0",
-               display: this.state.iframeVis }} role="img" aria-label="close">&#10060;</span>
+              <span onClick={this.closeIframe} style={{
+                cursor: "pointer", float: "right", marginBottom: "0",
+                display: this.state.iframeVis
+              }} role="img" aria-label="close">&#10060;</span>
             </div>) : ""}
 
-            <iframe id="fileViewer" style={{ width: "100%", height: "800px", display: this.state.iframeVis}}
+            <iframe id="fileViewer" style={{ width: "100%", height: "800px", display: this.state.iframeVis }}
               title={this.state.decryptedFile.name} src={this.state.iframeSrc} datatype={this.state.decryptedFile.type} >
             </iframe>
           </div>
